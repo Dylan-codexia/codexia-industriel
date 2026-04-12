@@ -1,0 +1,40 @@
+from datetime import datetime, timedelta
+from typing import Optional
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from core.config import settings
+
+# Contexte de hachage des mots de passe (bcrypt)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password: str) -> str:
+    """Transforme un mot de passe en clair en hash bcrypt."""
+    return pwd_context.hash(password)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Vérifie qu'un mot de passe correspond à son hash."""
+    return pwd_context.verify(plain_password, hashed_password)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """
+    Crée un token JWT signé.
+    Ce token est envoyé au client après connexion.
+    Il prouve l'identité de l'utilisateur à chaque requête.
+    """
+    to_encode = data.copy()
+    expire = datetime.utcnow() + (
+        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+def decode_token(token: str) -> Optional[dict]:
+    """
+    Décode et vérifie un token JWT.
+    Retourne None si le token est invalide ou expiré.
+    """
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        return payload
+    except JWTError:
+        return None
