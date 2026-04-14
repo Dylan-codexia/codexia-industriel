@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CODEX INDUSTRIEL — Console Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#050e1a; --panel:#0a1828; --border:#0d3a5c; --accent:#00c8ff;
+    --accent3:#00ff88; --gold:#ffd700; --red:#ff4444; --muted:#3a6080;
+    --text:#c8e0f0; --xp-bar:#0d2a3a;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Share Tech Mono',monospace; min-height:100vh; }
+
+  /* SCANLINES */
+  .scanlines { position:fixed; inset:0; pointer-events:none; z-index:1000;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,0.03) 0px,rgba(0,0,0,0.03) 1px,transparent 1px,transparent 2px); }
+
+  /* LAYOUT */
+  .admin-app { max-width:960px; margin:0 auto; padding:16px; }
+
+  /* HEADER */
+  .admin-header { border:1px solid var(--accent); border-top:3px solid var(--accent);
+    padding:16px 20px; margin-bottom:20px; position:relative;
+    background:linear-gradient(135deg,rgba(0,200,255,0.04),transparent); }
+  .admin-header-title { font-family:'Orbitron',monospace; font-size:clamp(16px,4vw,22px);
+    font-weight:900; color:#fff; letter-spacing:3px; }
+  .admin-header-title span { color:var(--accent); }
+  .admin-header-sub { font-size:8px; color:var(--muted); letter-spacing:4px; margin-top:4px; }
+  .admin-header-clock { position:absolute; top:8px; right:12px; font-size:8px;
+    color:var(--accent); letter-spacing:1px; }
+  .admin-header-user { position:absolute; bottom:8px; right:12px; font-size:8px;
+    color:var(--muted); letter-spacing:1px; }
+
+  /* AUTH OVERLAY */
+  .auth-overlay { display:none; position:fixed; inset:0; background:var(--bg);
+    z-index:500; flex-direction:column; align-items:center; justify-content:center; padding:20px; }
+  .auth-overlay.active { display:flex; }
+  .auth-box { background:var(--panel); border:1px solid var(--accent); border-top:2px solid var(--accent);
+    padding:28px; width:100%; max-width:380px; }
+  .auth-box h2 { font-family:'Orbitron',monospace; font-size:14px; color:var(--accent);
+    letter-spacing:3px; margin-bottom:4px; }
+  .auth-box p { font-size:8px; color:var(--muted); letter-spacing:2px; margin-bottom:20px; }
+  .auth-err { font-size:10px; color:var(--red); margin-bottom:8px; display:none;
+    padding:6px 8px; background:rgba(255,68,68,0.08); border:1px solid rgba(255,68,68,0.3); }
+
+  /* FORM */
+  .field-group { margin-bottom:14px; }
+  .field-group label { display:block; font-size:8px; color:var(--muted); letter-spacing:2px; margin-bottom:5px; }
+  .field-group input, .field-group textarea, .field-group select {
+    width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
+    font-family:'Share Tech Mono',monospace; font-size:11px; padding:8px 10px; outline:none;
+    transition:border-color 0.2s; }
+  .field-group input:focus, .field-group textarea:focus { border-color:var(--accent); }
+  .pwd-wrap { position:relative; }
+  .pwd-toggle { position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    background:none; border:none; cursor:pointer; font-size:14px; }
+  .btn-primary { width:100%; padding:12px; background:rgba(0,200,255,0.08);
+    border:1px solid var(--accent); color:var(--accent); font-family:'Orbitron',monospace;
+    font-size:11px; letter-spacing:3px; cursor:pointer; transition:all 0.2s; }
+  .btn-primary:hover { background:rgba(0,200,255,0.15); }
+  .btn-danger { border-color:var(--red); color:var(--red); background:rgba(255,68,68,0.06); }
+  .btn-success { border-color:var(--accent3); color:var(--accent3); background:rgba(0,255,136,0.06); }
+
+  /* ONGLETS ADMIN */
+  .admin-tabs { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:0; }
+  .admin-tab { font-family:'Share Tech Mono',monospace; font-size:9px; padding:7px 14px;
+    border:1px solid var(--border); color:var(--muted); background:transparent;
+    cursor:pointer; letter-spacing:1px; transition:all 0.2s; }
+  .admin-tab.active { border-color:var(--accent); color:var(--accent); background:rgba(0,200,255,0.1); }
+  .admin-pane { display:none; background:var(--panel); border:1px solid var(--accent);
+    border-top:none; padding:16px; }
+  .admin-pane.active { display:block; }
+
+  /* SECTIONS */
+  .section-label { font-size:8px; color:var(--muted); letter-spacing:3px; text-transform:uppercase;
+    margin-bottom:8px; border-bottom:1px solid var(--border); padding-bottom:4px; }
+
+  /* USER ROW */
+  .user-entry { border-bottom:1px solid var(--border); }
+  .user-entry summary { display:flex; align-items:center; gap:8px; padding:8px 10px;
+    cursor:pointer; list-style:none; user-select:none; }
+  .user-entry summary:hover { background:rgba(255,255,255,0.03); }
+  .user-entry-detail { padding:10px 12px; background:rgba(0,200,255,0.02); border-top:1px solid var(--border); }
+  .admin-select { background:var(--bg); border:1px solid var(--border); color:var(--text);
+    font-family:'Share Tech Mono',monospace; font-size:10px; padding:4px 8px; cursor:pointer; outline:none; }
+
+  /* SESSION ROW */
+  .session-row { display:flex; align-items:center; gap:10px; padding:8px 10px;
+    background:var(--bg); border:1px solid var(--border); border-left:3px solid var(--accent3);
+    margin-bottom:6px; }
+
+  /* MODULE ROW */
+  .module-row { display:flex; align-items:center; gap:10px; padding:10px;
+    background:var(--bg); border:1px solid var(--border); margin-bottom:6px; }
+  .module-toggle { font-family:'Share Tech Mono',monospace; font-size:8px; padding:4px 10px;
+    cursor:pointer; border:1px solid; transition:all 0.2s; }
+  .module-toggle.on { border-color:var(--accent3); color:var(--accent3); background:rgba(0,255,136,0.06); }
+  .module-toggle.off { border-color:var(--muted); color:var(--muted); background:transparent; }
+
+  /* AFFIL ROW */
+  .affil-row { display:flex; align-items:center; gap:8px; padding:6px 10px;
+    background:var(--bg); border:1px solid var(--border); margin-bottom:4px;
+    font-size:9px; }
+
+  /* TOAST */
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(80px);
+    background:#0a1520; border:1px solid var(--accent3); color:var(--accent3);
+    font-size:11px; padding:10px 20px; letter-spacing:2px; z-index:400;
+    transition:transform 0.4s ease; }
+  .toast.show { transform:translateX(-50%) translateY(0); }
+
+  /* SEARCH */
+  .search-input { width:100%; background:var(--bg); border:1px solid var(--border);
+    color:var(--text); font-family:'Share Tech Mono',monospace; font-size:10px;
+    padding:6px 8px; outline:none; margin-bottom:8px; }
+  .search-input:focus { border-color:var(--accent); }
+
+  /* SCROLLABLE LIST */
+  .scroll-list { max-height:45vh; overflow-y:auto; border:1px solid var(--border); }
+  .scroll-list-sm { max-height:20vh; overflow-y:auto; }
+
+  /* LOGOUT BTN */
+  .logout-btn { font-family:'Share Tech Mono',monospace; font-size:9px; padding:4px 12px;
+    border:1px solid var(--red); color:var(--red); background:transparent; cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+
+<!-- AUTH OVERLAY — Étape 1 : Identifiants -->
+<div class="auth-overlay active" id="authOverlay">
+  <div class="auth-box">
+    <h2>⚡ CONSOLE <span style="color:#fff;">ADMIN</span></h2>
+    <p>ACCÈS RÉSERVÉ — ADMINISTRATEUR GÉNÉRAL</p>
+
+    <!-- STEP 1 : Identifiants -->
+    <div id="stepCredentials">
+      <div class="field-group">
+        <label>Identifiant</label>
+        <input type="text" id="loginId" placeholder="Adminus25" onkeydown="if(event.key==='Enter')doLoginStep1()">
+      </div>
+      <div class="field-group">
+        <label>Mot de passe</label>
+        <div class="pwd-wrap">
+          <input type="password" id="loginPwd" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLoginStep1()">
+          <button class="pwd-toggle" onclick="togglePwd('loginPwd')" type="button">👁</button>
+        </div>
+      </div>
+      <div class="auth-err" id="loginErr"></div>
+      <button class="btn-primary" onclick="doLoginStep1()">▶ CONTINUER</button>
+    </div>
+
+    <!-- STEP 2 : Code TOTP -->
+    <div id="stepTOTP" style="display:none;">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:32px;margin-bottom:8px;">📱</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:4px;">VÉRIFICATION EN 2 ÉTAPES</div>
+        <div style="font-size:9px;color:var(--muted);">Ouvre Google Authenticator<br>et entre le code à 6 chiffres</div>
+      </div>
+      <div class="field-group">
+        <label>Code Google Authenticator</label>
+        <input type="text" id="totpCode" placeholder="000000" maxlength="6"
+          style="text-align:center;font-size:22px;letter-spacing:8px;font-family:'Orbitron',monospace;"
+          oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+          onkeydown="if(event.key==='Enter')doLoginStep2()">
+      </div>
+      <div id="totpCountdown" style="text-align:center;font-size:9px;color:var(--muted);margin-bottom:12px;"></div>
+      <div class="auth-err" id="totpErr"></div>
+      <button class="btn-primary" onclick="doLoginStep2()">🔐 ACCÉDER À LA CONSOLE</button>
+      <button onclick="backToStep1()" style="width:100%;margin-top:8px;padding:8px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:9px;cursor:pointer;">← RETOUR</button>
+    </div>
+
+    <!-- SETUP TOTP (première utilisation) -->
+    <div id="stepSetup" style="display:none;">
+      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--gold);text-align:center;margin-bottom:12px;letter-spacing:2px;">⚠ PREMIÈRE CONNEXION — CONFIGURER L'AUTHENTIFICATEUR</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:12px;line-height:1.6;">
+        1. Ouvre <strong style="color:#fff;">Google Authenticator</strong><br>
+        2. Appuie sur <strong style="color:#fff;">+</strong> puis <strong style="color:#fff;">Scanner un QR code</strong><br>
+        3. Scanne le QR code ci-dessous
+      </div>
+      <div id="qrCodeContainer" style="text-align:center;margin:16px 0;"></div>
+      <div style="font-size:8px;color:var(--muted);text-align:center;margin-bottom:12px;">
+        Ou entre manuellement la clé :<br>
+        <span id="secretDisplay" style="color:var(--accent);letter-spacing:2px;font-size:10px;"></span>
+      </div>
+      <div class="field-group">
+        <label>Confirme avec un code pour valider</label>
+        <input type="text" id="setupCode" placeholder="000000" maxlength="6"
+          style="text-align:center;font-size:18px;letter-spacing:6px;font-family:'Orbitron',monospace;"
+          oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+          onkeydown="if(event.key==='Enter')doConfirmSetup()">
+      </div>
+      <div class="auth-err" id="setupErr"></div>
+      <button class="btn-primary btn-success" onclick="doConfirmSetup()">✓ CONFIRMER ET ACCÉDER</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="admin-app" id="adminApp" style="display:none;">
+
+  <div class="admin-header">
+    <div id="adminClock" class="admin-header-clock"></div>
+    <div class="admin-header-title">CODEX <span>INDUSTRIEL</span></div>
+    <div class="admin-header-sub">⚡ CONSOLE ADMINISTRATEUR GÉNÉRAL</div>
+    <div class="admin-header-user" id="adminUserInfo"></div>
+    <div style="margin-top:12px;display:flex;justify-content:flex-end;">
+      <button class="logout-btn" onclick="doLogout()">⏻ Déconnexion</button>
+    </div>
+  </div>
+
+  <!-- ONGLETS -->
+  <div class="admin-tabs">
+    <button class="admin-tab active" onclick="switchTab('members')" id="tab-members">👥 MEMBRES</button>
+    <button class="admin-tab" onclick="switchTab('modules')" id="tab-modules">🧩 MODULES</button>
+    <button class="admin-tab" onclick="switchTab('online')" id="tab-online">🟢 CONNECTÉS</button>
+    <button class="admin-tab" onclick="switchTab('affiliations')" id="tab-affiliations">🔗 AFFILIATIONS</button>
+    <button class="admin-tab" onclick="switchTab('verify')" id="tab-verify">🔍 VÉRIFICATIONS</button>
+    <button class="admin-tab" onclick="switchTab('create')" id="tab-create">➕ CRÉER MODULE</button>
+  </div>
+
+  <!-- ── PANNEAU MEMBRES ── -->
+  <div class="admin-pane active" id="pane-members">
+    <div class="section-label">Utilisateurs enregistrés — <span id="userCount">0</span> comptes</div>
+    <input type="text" class="search-input" id="memberSearch" placeholder="Rechercher un pseudo..." oninput="filterMembers()">
+    <div class="scroll-list" id="memberList"></div>
+  </div>
+
+  <!-- ── PANNEAU MODULES ── -->
+  <div class="admin-pane" id="pane-modules">
+    <div class="section-label">Modules disponibles</div>
+    <div id="moduleList"></div>
+  </div>
+
+  <!-- ── PANNEAU CONNECTÉS ── -->
+  <div class="admin-pane" id="pane-online">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div class="section-label" style="margin-bottom:0;">Sessions actives</div>
+      <button onclick="renderOnline()" style="font-family:'Share Tech Mono',monospace;font-size:8px;padding:3px 8px;border:1px solid var(--border);color:var(--muted);background:transparent;cursor:pointer;">↻ Actualiser</button>
+    </div>
+    <div id="onlineList"></div>
+  </div>
+
+  <!-- ── PANNEAU AFFILIATIONS ── -->
+  <div class="admin-pane" id="pane-affiliations">
+    <div class="section-label">Affiliations Manager → Utilisateurs</div>
+    <div class="scroll-list-sm" id="affilList" style="margin-bottom:12px;"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+      <select id="affilUser" class="admin-select"><option value="">Utilisateur...</option></select>
+      <select id="affilMgr" class="admin-select"><option value="">Manager...</option></select>
+      <button onclick="doAffil()" style="background:rgba(0,200,255,0.08);border:1px solid var(--accent);color:var(--accent);font-family:'Share Tech Mono',monospace;font-size:10px;padding:4px 12px;cursor:pointer;">Affilier</button>
+    </div>
+  </div>
+
+  <!-- ── PANNEAU VÉRIFICATIONS ── -->
+  <div class="admin-pane" id="pane-verify">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div class="section-label" style="margin-bottom:0;">Demandes de vérification de parcours</div>
+      <span id="verifyBadgeCount" style="display:none;font-family:'Share Tech Mono',monospace;font-size:8px;color:#ff6b00;border:1px solid #ff6b00;padding:2px 6px;"></span>
+    </div>
+    <div id="verifyList"></div>
+  </div>
+
+  <!-- MODAL RÉPONSE ADMIN -->
+  <div id="replyModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:320;align-items:center;justify-content:center;">
+    <div style="max-width:400px;width:90%;background:var(--panel);border:1px solid var(--accent);border-top:2px solid var(--accent);padding:20px;">
+      <div style="font-family:'Orbitron',monospace;font-size:11px;color:var(--accent);margin-bottom:12px;">💬 ENVOYER UN MESSAGE</div>
+      <div id="replyTarget" style="font-size:9px;color:var(--muted);margin-bottom:10px;"></div>
+      <textarea id="replyText" maxlength="300" placeholder="ex: Il manque votre diplôme de Bac Pro MSPC, merci de le joindre..."
+        style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:10px;padding:8px;outline:none;resize:none;height:80px;"></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button onclick="sendAdminReply()" class="btn-primary" style="flex:1;padding:8px;">💬 ENVOYER</button>
+        <button onclick="closeReplyModal()" style="flex:1;padding:8px;border:1px solid var(--border);color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:10px;background:transparent;cursor:pointer;">ANNULER</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL VOIR FICHIER -->
+  <div id="filePreviewModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:330;align-items:center;justify-content:center;flex-direction:column;">
+    <button onclick="closeFilePreview()" style="position:fixed;top:16px;right:16px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:10px;padding:5px 12px;cursor:pointer;">✕ FERMER</button>
+    <div id="filePreviewContent" style="max-width:90vw;max-height:85vh;overflow:auto;"></div>
+  </div>
+  <div class="admin-pane" id="pane-create">
+    <div class="section-label">Créer un nouveau module métier</div>
+    <div class="field-group">
+      <label>Nom du module</label>
+      <input type="text" id="modName" placeholder="ex: Agroalimentaire" maxlength="40">
+    </div>
+    <div class="field-group">
+      <label>Clé interne (minuscules, sans espaces)</label>
+      <input type="text" id="modKey" placeholder="ex: agro" maxlength="20" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_]/g,'')">
+    </div>
+    <div style="display:flex;gap:12px;">
+      <div class="field-group" style="flex:1">
+        <label>Emoji</label>
+        <input type="text" id="modEmoji" placeholder="🌾" maxlength="4">
+      </div>
+      <div class="field-group" style="flex:1">
+        <label>Couleur</label>
+        <input type="color" id="modColor" value="#22c55e">
+      </div>
+    </div>
+    <div class="field-group">
+      <label>Description</label>
+      <textarea id="modDesc" maxlength="300" placeholder="Description du secteur d'activité..." style="min-height:60px;"></textarea>
+    </div>
+    <div id="createModErr" class="auth-err"></div>
+    <button class="btn-primary btn-success" onclick="doCreateModule()">➕ CRÉER LE MODULE</button>
+  </div>
+
+  <!-- MODAL CONSOLE UTILISATEUR -->
+  <div id="userConsoleModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;overflow-y:auto;">
+    <div style="max-width:500px;margin:40px auto 20px;background:var(--panel);border:1px solid var(--accent);border-top:2px solid var(--accent);padding:20px;position:relative;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="font-family:'Orbitron',monospace;font-size:12px;color:var(--accent);">⚙ CONSOLE <span id="consoleUserName" style="color:#fff;"></span></div>
+        <button onclick="closeUserConsole()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:9px;padding:3px 8px;cursor:pointer;">✕ FERMER</button>
+      </div>
+      <div id="userConsoleContent"></div>
+    </div>
+  </div>
+
+  <!-- MODAL SUPPRIMER COMPTE -->
+  <div id="deleteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:310;display:flex;align-items:center;justify-content:center;">
+    <div style="max-width:380px;width:90%;background:var(--panel);border:1px solid var(--red);border-top:2px solid var(--red);padding:20px;">
+      <div style="font-family:'Orbitron',monospace;font-size:12px;color:var(--red);margin-bottom:8px;">⚠ SUPPRIMER CE COMPTE</div>
+      <div id="deleteTarget" style="font-size:10px;color:var(--red);margin-bottom:12px;"></div>
+      <div class="field-group">
+        <label>Confirme avec ton mot de passe admin</label>
+        <div class="pwd-wrap">
+          <input type="password" id="deletePwd" placeholder="••••••••">
+          <button class="pwd-toggle" onclick="togglePwd('deletePwd')" type="button">👁</button>
+        </div>
+      </div>
+      <div id="deleteErr" class="auth-err"></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-primary btn-danger" onclick="confirmDelete()" style="flex:1;">⚠ SUPPRIMER</button>
+        <button onclick="closeDeleteModal()" style="flex:1;padding:10px;border:1px solid var(--border);color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer;background:transparent;">ANNULER</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// CLÉS LOCALSTORAGE PARTAGÉES avec parcours-rpg-v2.html
+// ═══════════════════════════════════════════════
+const DB_KEY            = 'codex_users_db';
+const SESSION_KEY       = 'codex_admin_session'; // SESSION SÉPARÉE
+const AFFIL_KEY         = 'codex_affiliations';
+const SESSIONS_KEY      = 'codex_active_sessions';
+const MISSIONS_KEY      = 'codex_missions';
+const NOTIFS_KEY        = 'codex_notifs';
+const OBJECTIFS_KEY     = 'codex_objectifs';
+const CUSTOM_MODULES_KEY = 'codex_custom_modules';
+const ACTIVE_MODULES_KEY = 'codex_active_modules';
+
+// ── UTILITAIRES DB ──────────────────────────────
+const getDB = () => { try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch(e) { return {}; } };
+const saveDB = db => { try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch(e) {} };
+const getAffils = () => { try { return JSON.parse(localStorage.getItem(AFFIL_KEY)) || {}; } catch(e) { return {}; } };
+const saveAffils = a => { try { localStorage.setItem(AFFIL_KEY, JSON.stringify(a)); } catch(e) {} };
+const getSessions = () => { try { return JSON.parse(localStorage.getItem(SESSIONS_KEY)) || {}; } catch(e) { return {}; } };
+const getMissions = uid => { try { const d = JSON.parse(localStorage.getItem(MISSIONS_KEY)||'{}'); return d[uid] || []; } catch(e) { return []; } };
+const getObjectifs = uid => { try { const d = JSON.parse(localStorage.getItem(OBJECTIFS_KEY)||'{}'); return d[uid] || []; } catch(e) { return []; } };
+const getNotifs = uid => { try { const d = JSON.parse(localStorage.getItem(NOTIFS_KEY)||'{}'); return d[uid] || []; } catch(e) { return []; } };
+const saveNotifs = (uid, list) => { try { const d = JSON.parse(localStorage.getItem(NOTIFS_KEY)||'{}'); d[uid] = list; localStorage.setItem(NOTIFS_KEY, JSON.stringify(d)); } catch(e) {} };
+const getCustomModules = () => { try { return JSON.parse(localStorage.getItem(CUSTOM_MODULES_KEY)) || []; } catch(e) { return []; } };
+const saveCustomModules = m => { try { localStorage.setItem(CUSTOM_MODULES_KEY, JSON.stringify(m)); } catch(e) {} };
+
+// ── HASH ────────────────────────────────────────
+function simpleHash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+  return h.toString(16);
+}
+
+// ── BOOTSTRAP ───────────────────────────────────
+function bootstrap() {
+  const db = getDB();
+
+  // Adminus25 — Admin Général permanent
+  const adminKey = 'permanent_adminus25';
+  if (!db[adminKey]) {
+    db[adminKey] = { uid:adminKey, name:'Administrateur Système', email:'adminus25@codex.internal',
+      pseudo:'Adminus25', pwdHash:simpleHash('Carotte45'), role:'admin', createdAt:new Date().toISOString() };
+  } else {
+    db[adminKey].role = 'admin';
+    db[adminKey].pwdHash = simpleHash('Carotte45');
+  }
+
+  saveDB(db);
+}
+
+// ── AUTH ADMIN ──────────────────────────────────
+function getAdminSession() {
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY)) || null; } catch(e) { return null; }
+}
+function saveAdminSession(u) {
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify(u)); } catch(e) {}
+}
+function clearAdminSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════
+// TOTP — Authentification 2 facteurs
+// Implémentation HMAC-SHA1 en pur JavaScript
+// Compatible Google Authenticator (RFC 6238)
+// ═══════════════════════════════════════════════
+
+const TOTP_KEY = 'codex_admin_totp_secret';
+const TOTP_SETUP_KEY = 'codex_admin_totp_configured';
+
+// Récupère ou génère la clé secrète TOTP
+function getTOTPSecret() {
+  let secret = localStorage.getItem(TOTP_KEY);
+  if (!secret) {
+    // Générer une clé base32 aléatoire de 20 bytes
+    const bytes = new Uint8Array(20);
+    crypto.getRandomValues(bytes);
+    secret = base32Encode(bytes);
+    localStorage.setItem(TOTP_KEY, secret);
+  }
+  return secret;
+}
+
+function isTOTPConfigured() {
+  return localStorage.getItem(TOTP_SETUP_KEY) === '1';
+}
+
+function markTOTPConfigured() {
+  localStorage.setItem(TOTP_SETUP_KEY, '1');
+}
+
+// ── BASE32 ──────────────────────────────────────
+function base32Encode(bytes) {
+  const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = 0, val = 0, out = '';
+  for (let i = 0; i < bytes.length; i++) {
+    val = (val << 8) | bytes[i];
+    bits += 8;
+    while (bits >= 5) { out += CHARS[(val >>> (bits - 5)) & 31]; bits -= 5; }
+  }
+  if (bits > 0) out += CHARS[(val << (5 - bits)) & 31];
+  return out;
+}
+
+function base32Decode(str) {
+  const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  str = str.replace(/=+$/, '').toUpperCase();
+  let bits = 0, val = 0;
+  const out = [];
+  for (let i = 0; i < str.length; i++) {
+    const idx = CHARS.indexOf(str[i]);
+    if (idx === -1) continue;
+    val = (val << 5) | idx;
+    bits += 5;
+    if (bits >= 8) { out.push((val >>> (bits - 8)) & 255); bits -= 8; }
+  }
+  return new Uint8Array(out);
+}
+
+// ── HMAC-SHA1 en pur JS ─────────────────────────
+async function hmacSHA1(keyBytes, msgBytes) {
+  const key = await crypto.subtle.importKey('raw', keyBytes, { name:'HMAC', hash:'SHA-1' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, msgBytes);
+  return new Uint8Array(sig);
+}
+
+// ── CALCUL DU CODE TOTP ─────────────────────────
+async function computeTOTP(secret, timeStep) {
+  if (timeStep === undefined) timeStep = Math.floor(Date.now() / 30000);
+  const keyBytes = base32Decode(secret);
+  const msgBytes = new Uint8Array(8);
+  let t = timeStep;
+  for (let i = 7; i >= 0; i--) { msgBytes[i] = t & 0xff; t = Math.floor(t / 256); }
+  const hash = await hmacSHA1(keyBytes, msgBytes);
+  const offset = hash[19] & 0x0f;
+  const code = ((hash[offset] & 0x7f) << 24) | (hash[offset+1] << 16) | (hash[offset+2] << 8) | hash[offset+3];
+  return String(code % 1000000).padStart(6, '0');
+}
+
+// Vérifier avec fenêtre ±1 (tolérance 30s)
+async function verifyTOTP(secret, userCode) {
+  const t = Math.floor(Date.now() / 30000);
+  for (let delta = -1; delta <= 1; delta++) {
+    const expected = await computeTOTP(secret, t + delta);
+    if (expected === userCode.trim()) return true;
+  }
+  return false;
+}
+
+// ── QR CODE (bibliothèque légère) ───────────────
+function generateQRCodeURL(secret) {
+  const label = encodeURIComponent('CODEX:Adminus25');
+  const issuer = encodeURIComponent('CODEX INDUSTRIEL');
+  const otpauth = `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
+  // API QR code publique — en production remplacer par une lib locale
+  return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauth)}&bgcolor=050e1a&color=00c8ff&qzone=2`;
+}
+
+// ── COUNTDOWN TOTP ──────────────────────────────
+let _countdownInterval;
+function startCountdown() {
+  const el = document.getElementById('totpCountdown');
+  if (!el) return;
+  clearInterval(_countdownInterval);
+  _countdownInterval = setInterval(() => {
+    const remaining = 30 - (Math.floor(Date.now() / 1000) % 30);
+    const pct = (remaining / 30) * 100;
+    const color = remaining <= 10 ? '#ff4444' : 'var(--muted)';
+    el.innerHTML = `<span style="color:${color};">Code valide encore ${remaining}s</span>
+      <div style="width:100%;height:2px;background:var(--border);margin-top:4px;border-radius:1px;">
+        <div style="width:${pct}%;height:100%;background:${color};transition:width 0.9s linear;"></div>
+      </div>`;
+  }, 1000);
+}
+function stopCountdown() { clearInterval(_countdownInterval); }
+
+// ── ÉTAPE 1 : Vérifier identifiants ────────────
+let _pendingUser = null;
+
+function doLoginStep1() {
+  const id  = document.getElementById('loginId').value.trim().toLowerCase();
+  const pwd = document.getElementById('loginPwd').value;
+  const err = document.getElementById('loginErr');
+  if (!id || !pwd) { showErr(err, 'Remplissez tous les champs'); return; }
+
+  const db = getDB();
+  const user = Object.values(db).find(u =>
+    (u.email.toLowerCase() === id || u.pseudo.toLowerCase() === id) && u.role === 'admin'
+  );
+  if (!user || user.pwdHash !== simpleHash(pwd)) {
+    showErr(err, 'Identifiant incorrect ou rôle insuffisant');
+    return;
+  }
+
+  _pendingUser = user;
+
+  // Première utilisation → setup TOTP
+  if (!isTOTPConfigured()) {
+    showSetupStep();
+    return;
+  }
+
+  // TOTP déjà configuré → step 2
+  showTOTPStep();
+}
+
+// ── SETUP PREMIÈRE FOIS ─────────────────────────
+function showSetupStep() {
+  document.getElementById('stepCredentials').style.display = 'none';
+  document.getElementById('stepTOTP').style.display = 'none';
+  document.getElementById('stepSetup').style.display = 'block';
+
+  const secret = getTOTPSecret();
+  document.getElementById('secretDisplay').textContent = secret.match(/.{1,4}/g).join(' ');
+  document.getElementById('qrCodeContainer').innerHTML =
+    `<img src="${generateQRCodeURL(secret)}" width="200" height="200" style="border:2px solid var(--accent);" alt="QR Code">`;
+}
+
+async function doConfirmSetup() {
+  const code = document.getElementById('setupCode').value.trim();
+  const err  = document.getElementById('setupErr');
+  if (code.length !== 6) { showErr(err, 'Entre le code à 6 chiffres'); return; }
+
+  const secret = getTOTPSecret();
+  const valid = await verifyTOTP(secret, code);
+  if (!valid) { showErr(err, 'Code incorrect — vérifie Google Authenticator'); return; }
+
+  markTOTPConfigured();
+  onLoginSuccess(_pendingUser);
+}
+
+// ── ÉTAPE 2 : Vérifier code TOTP ────────────────
+function showTOTPStep() {
+  document.getElementById('stepCredentials').style.display = 'none';
+  document.getElementById('stepSetup').style.display = 'none';
+  document.getElementById('stepTOTP').style.display = 'block';
+  document.getElementById('totpCode').value = '';
+  document.getElementById('totpCode').focus();
+  startCountdown();
+}
+
+async function doLoginStep2() {
+  const code = document.getElementById('totpCode').value.trim();
+  const err  = document.getElementById('totpErr');
+  if (code.length !== 6) { showErr(err, 'Code à 6 chiffres requis'); return; }
+
+  const secret = getTOTPSecret();
+  const valid = await verifyTOTP(secret, code);
+  if (!valid) {
+    showErr(err, 'Code incorrect ou expiré');
+    document.getElementById('totpCode').value = '';
+    document.getElementById('totpCode').focus();
+    return;
+  }
+
+  stopCountdown();
+  onLoginSuccess(_pendingUser);
+}
+
+function backToStep1() {
+  stopCountdown();
+  _pendingUser = null;
+  document.getElementById('stepTOTP').style.display = 'none';
+  document.getElementById('stepSetup').style.display = 'none';
+  document.getElementById('stepCredentials').style.display = 'block';
+}
+
+// Garder doLogin pour compatibilité
+function doLogin() { doLoginStep1(); }
+
+function doLogout() {
+  clearAdminSession();
+  document.getElementById('authOverlay').classList.add('active');
+  document.getElementById('adminApp').style.display = 'none';
+}
+
+function onLoginSuccess(user) {
+  saveAdminSession(user);
+  _pendingUser = null;
+  document.getElementById('authOverlay').classList.remove('active');
+  document.getElementById('adminApp').style.display = 'block';
+  document.getElementById('adminUserInfo').textContent = '⚡ ' + user.pseudo.toUpperCase();
+  switchTab('members');
+}
+
+function showErr(el, msg) {
+  if (!el) return;
+  el.textContent = msg; el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 4000);
+}
+
+function togglePwd(id) {
+  const f = document.getElementById(id);
+  if (f) f.type = f.type === 'password' ? 'text' : 'password';
+}
+
+// ── ONGLETS ─────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.admin-tab').forEach(b => {
+    b.classList.toggle('active', b.id === 'tab-' + tab);
+  });
+  document.querySelectorAll('.admin-pane').forEach(p => p.classList.remove('active'));
+  const pane = document.getElementById('pane-' + tab);
+  if (pane) pane.classList.add('active');
+  if (tab === 'members') renderMembers();
+  if (tab === 'online') renderOnline();
+  if (tab === 'modules') renderModules();
+  if (tab === 'affiliations') renderAffiliations();
+  if (tab === 'verify') renderVerifications();
+}
+
+// ── MEMBRES ─────────────────────────────────────
+function renderMembers() {
+  const db = getDB();
+  const users = Object.values(db);
+  document.getElementById('userCount').textContent = users.length;
+  const session = getAdminSession();
+  const affils = getAffils();
+  const roleColors = { user:'var(--muted)', manager:'#ff4444', admin_local:'#00ff88', admin:'#00c8ff' };
+  const roleLabels = { user:'UTILISATEUR', manager:'MANAGER', admin_local:'ADMIN LOCAL', admin:'ADMIN GÉNÉRAL' };
+
+  const html = users.map(u => {
+    const isSelf = session && u.uid === session.uid;
+    const col = roleColors[u.role] || 'var(--muted)';
+    const mgrUid = affils[u.uid];
+    const mgr = mgrUid ? db[mgrUid] : null;
+    const mState = getUserState(u.uid);
+    const mXP = calcXP(mState);
+    const lvl = getLevel(mXP);
+    const pending = mState.pending ? Object.keys(mState.pending).length : 0;
+    const roleOpts = ['user','manager','admin_local','admin'].map(r =>
+      `<option value="${r}" ${u.role===r?'selected':''}>${roleLabels[r]}</option>`).join('');
+
+    return `<details class="user-entry" data-pseudo="${u.pseudo.toLowerCase()}" style="border-bottom:1px solid var(--border);">
+      <summary>
+        <div style="width:22px;height:22px;border:1px solid ${col};border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">👤</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:#fff;">${u.pseudo}</div>
+        </div>
+        <div style="font-size:8px;color:${col};white-space:nowrap;">${roleLabels[u.role]||u.role}</div>
+        ${pending > 0 ? `<div style="font-size:8px;color:#ff6b00;border:1px solid #ff6b00;padding:1px 5px;border-radius:10px;">⏳${pending}</div>` : ''}
+        <div style="font-size:8px;color:var(--muted);">Niv.${lvl} · ${mXP} XP</div>
+        <div style="font-size:9px;color:var(--muted);">▸</div>
+      </summary>
+      <div class="user-entry-detail">
+        <div style="font-size:8px;color:var(--muted);margin-bottom:6px;">${u.email}${mgr ? ' · Manager: <span style="color:#ff4444;">'+mgr.pseudo+'</span>' : ''}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${!isSelf ? `<select class="admin-select" onchange="setRole('${u.uid}',this.value)">${roleOpts}</select>` : ''}
+          <button onclick="openConsole('${u.uid}')" style="font-family:Share Tech Mono,monospace;font-size:8px;padding:4px 10px;border:1px solid var(--accent);color:var(--accent);background:rgba(0,200,255,0.06);cursor:pointer;">⚙ CONSOLE</button>
+          ${!isSelf ? `<button onclick="openDeleteModal('${u.uid}')" style="font-family:Share Tech Mono,monospace;font-size:8px;padding:4px 8px;border:1px solid var(--red);color:var(--red);background:transparent;cursor:pointer;">🗑</button>` : ''}
+        </div>
+      </div>
+    </details>`;
+  }).join('') || '<div style="padding:12px;color:var(--muted);font-size:10px;">Aucun utilisateur</div>';
+
+  document.getElementById('memberList').innerHTML = `<div id="memberListInner">${html}</div>`;
+}
+
+function filterMembers() {
+  const q = (document.getElementById('memberSearch').value || '').toLowerCase();
+  document.querySelectorAll('.user-entry').forEach(el => {
+    el.style.display = (el.dataset.pseudo||'').includes(q) ? '' : 'none';
+  });
+}
+
+function setRole(uid, role) {
+  const db = getDB();
+  if (db[uid]) { db[uid].role = role; saveDB(db); renderMembers(); showToast('✓ RÔLE MIS À JOUR'); }
+}
+
+// ── CONSOLE UTILISATEUR ─────────────────────────
+let _consoleUid = null;
+
+function getUserState(uid) {
+  try { return JSON.parse(localStorage.getItem('codex_v2_'+uid)||'{}'); } catch(e) { return {}; }
+}
+function calcXP(s) {
+  // Calcul simplifié — on récupère le totalXP stocké ou missionXP
+  return (s.missionXP || 0);
+}
+function getLevel(xp) {
+  // Reprise de la courbe de niveaux
+  const LEVELS = [
+    {lvl:1,xp:0},{lvl:2,xp:800},{lvl:3,xp:1500},{lvl:4,xp:2200},{lvl:5,xp:3000},
+    {lvl:6,xp:4400},{lvl:7,xp:5800},{lvl:8,xp:7200},{lvl:9,xp:8600},{lvl:10,xp:10000},
+    {lvl:11,xp:12200},{lvl:12,xp:14400},{lvl:13,xp:16600},{lvl:14,xp:18800},{lvl:15,xp:21000},
+    {lvl:16,xp:26800},{lvl:17,xp:32600},{lvl:18,xp:38400},{lvl:19,xp:44200},{lvl:20,xp:50000},
+  ];
+  let cur = 1;
+  for (const l of LEVELS) { if (xp >= l.xp) cur = l.lvl; }
+  return cur;
+}
+
+function openConsole(uid) {
+  _consoleUid = uid;
+  const db = getDB();
+  const u = db[uid];
+  if (!u) return;
+  const uState = getUserState(uid);
+  const missions = getMissions(uid);
+  const objectifs = getObjectifs(uid);
+  const mHist = missions.filter(m => m.status==='validated'||m.status==='expired');
+  const oHist = objectifs.filter(o => o.status==='validated'||o.status==='expired');
+  const skillNotifs = getNotifs(uid).filter(n => n.type==='skill_validated'||n.type==='skill_rejected');
+  const pending = uState.pending ? Object.entries(uState.pending) : [];
+
+  document.getElementById('consoleUserName').textContent = u.pseudo.toUpperCase();
+
+  let html = `
+    <div style="background:rgba(255,68,68,0.05);border:1px solid rgba(255,68,68,0.2);padding:10px;margin-bottom:14px;">
+      <div style="font-family:'Orbitron',monospace;font-size:11px;color:#fff;">${u.pseudo}</div>
+      <div style="font-size:8px;color:var(--muted);margin-top:2px;">${u.email} · ${u.role.toUpperCase()}</div>
+      <div style="font-size:9px;color:var(--gold);margin-top:4px;">XP Missions/Objectifs : ${uState.missionXP||0}</div>
+    </div>
+
+    <div class="section-label" style="margin-bottom:8px;">XP BONUS</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <input type="number" id="xpOverride" value="${uState.missionXP||0}" min="0"
+        style="width:80px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:12px;padding:6px;text-align:center;outline:none;">
+      <button onclick="setXP('${uid}')" style="font-family:Share Tech Mono,monospace;font-size:9px;padding:6px 12px;border:1px solid var(--accent);color:var(--accent);background:rgba(0,200,255,0.06);cursor:pointer;">✓ APPLIQUER</button>
+    </div>`;
+
+  // Compétences en attente de validation
+  if (pending.length) {
+    html += `<div class="section-label" style="margin-bottom:8px;color:#ff6b00;">⏳ COMPÉTENCES EN ATTENTE (${pending.length})</div>`;
+    pending.forEach(([skillKey, skillData]) => {
+      const stepText = skillData.stepText || skillKey;
+      html += `<div style="background:rgba(255,107,0,0.04);border:1px solid rgba(255,107,0,0.3);border-left:3px solid #ff6b00;padding:8px;margin-bottom:6px;">
+        <div style="font-size:9px;color:var(--text);margin-bottom:6px;">${stepText.slice(0,80)}</div>
+        <div style="display:flex;gap:6px;">
+          <button onclick="adminValidateSkill('${uid}','${skillKey}',${skillData.xpVal||0},'${(skillData.stepText||'').replace(/'/g,"\\'")}',true)" style="flex:1;font-size:8px;padding:4px;border:1px solid var(--accent3);color:var(--accent3);background:rgba(0,255,136,0.06);cursor:pointer;">✓ VALIDER +${skillData.xpVal||0} XP</button>
+          <button onclick="adminValidateSkill('${uid}','${skillKey}',${skillData.xpVal||0},'${(skillData.stepText||'').replace(/'/g,"\\'")}',false)" style="flex:1;font-size:8px;padding:4px;border:1px solid var(--red);color:var(--red);background:rgba(255,68,68,0.06);cursor:pointer;">✕ REFUSER</button>
+        </div>
+      </div>`;
+    });
+  }
+
+  // Historiques
+  html += `<details style="margin-top:10px;"><summary style="font-size:8px;color:var(--muted);cursor:pointer;letter-spacing:2px;">📋 HISTORIQUE MISSIONS (${mHist.length})</summary>
+    <div style="margin-top:6px;">${mHist.map(m=>`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:9px;color:${m.status==='validated'?'var(--accent3)':'var(--muted)'};">
+      ${m.status==='validated'?'✓':'✗'} ${m.text.slice(0,60)} — ${m.status==='validated'?'+'+m.xp+' XP':'Expirée'}
+      <button onclick="adminDelHistory('mission','${uid}','${m.id}')" style="background:transparent;border:none;color:var(--red);cursor:pointer;font-size:10px;float:right;">🗑</button>
+    </div>`).join('')||'<div style="font-size:9px;color:var(--muted);padding:6px;">Vide</div>'}</div></details>
+
+  <details style="margin-top:6px;"><summary style="font-size:8px;color:var(--muted);cursor:pointer;letter-spacing:2px;">📋 HISTORIQUE OBJECTIFS (${oHist.length})</summary>
+    <div style="margin-top:6px;">${oHist.map(o=>`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:9px;color:${o.status==='validated'?'var(--gold)':'var(--muted)'};">
+      ${o.status==='validated'?'✓':'✗'} ${o.text.slice(0,60)} — ${o.status==='validated'?'+'+o.xp+' XP':'Expirée'}
+      <button onclick="adminDelHistory('objectif','${uid}','${o.id}')" style="background:transparent;border:none;color:var(--red);cursor:pointer;font-size:10px;float:right;">🗑</button>
+    </div>`).join('')||'<div style="font-size:9px;color:var(--muted);padding:6px;">Vide</div>'}</div></details>
+
+  <details style="margin-top:6px;"><summary style="font-size:8px;color:var(--muted);cursor:pointer;letter-spacing:2px;">🎓 HISTORIQUE COMPÉTENCES (${skillNotifs.length})</summary>
+    <div style="margin-top:6px;">${skillNotifs.map(n=>`<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:9px;color:${n.type==='skill_validated'?'var(--accent3)':'var(--red)'};">
+      ${n.type==='skill_validated'?'✓':'✗'} ${n.sub} — ${new Date(n.date).toLocaleDateString('fr-FR')}
+    </div>`).join('')||'<div style="font-size:9px;color:var(--muted);padding:6px;">Vide</div>'}</div></details>`;
+
+  document.getElementById('userConsoleContent').innerHTML = html;
+  document.getElementById('userConsoleModal').style.display = 'block';
+}
+
+function closeUserConsole() {
+  document.getElementById('userConsoleModal').style.display = 'none';
+  _consoleUid = null;
+}
+
+function setXP(uid) {
+  const val = parseInt(document.getElementById('xpOverride').value) || 0;
+  const key = 'codex_v2_' + uid;
+  try {
+    const s = JSON.parse(localStorage.getItem(key)||'{}');
+    s.missionXP = val;
+    localStorage.setItem(key, JSON.stringify(s));
+    showToast('✓ XP MIS À JOUR : ' + val);
+    openConsole(uid);
+  } catch(e) {}
+}
+
+function adminValidateSkill(uid, skillKey, xpVal, stepText, accept) {
+  const key = 'codex_v2_' + uid;
+  try {
+    const s = JSON.parse(localStorage.getItem(key)||'{}');
+    if (!s.pending) s.pending = {};
+    if (accept) {
+      if (!s.done) s.done = {};
+      s.done[skillKey] = true;
+      delete s.pending[skillKey];
+      localStorage.setItem(key, JSON.stringify(s));
+      const notifs = getNotifs(uid);
+      notifs.unshift({ type:'skill_validated', title:'✓ Compétence validée !', sub:`+${xpVal} XP — "${stepText.slice(0,50)}"`, date:new Date().toISOString(), id:'n_'+Date.now(), read:false });
+      saveNotifs(uid, notifs);
+      showToast('✓ COMPÉTENCE VALIDÉE');
+    } else {
+      delete s.pending[skillKey];
+      localStorage.setItem(key, JSON.stringify(s));
+      const notifs = getNotifs(uid);
+      notifs.unshift({ type:'skill_rejected', title:'✗ Compétence refusée', sub:`"${stepText.slice(0,50)}"`, date:new Date().toISOString(), id:'n_'+Date.now(), read:false });
+      saveNotifs(uid, notifs);
+      showToast('✗ COMPÉTENCE REFUSÉE');
+    }
+    openConsole(uid);
+  } catch(e) {}
+}
+
+function adminDelHistory(type, uid, itemId) {
+  const key = type === 'mission' ? MISSIONS_KEY : OBJECTIFS_KEY;
+  try {
+    const d = JSON.parse(localStorage.getItem(key)||'{}');
+    if (d[uid]) { d[uid] = d[uid].filter(i => i.id !== itemId); localStorage.setItem(key, JSON.stringify(d)); }
+    showToast('🗑 SUPPRIMÉ');
+    openConsole(uid);
+  } catch(e) {}
+}
+
+// ── SUPPRIMER COMPTE ────────────────────────────
+let _deleteUid = null;
+function openDeleteModal(uid) {
+  _deleteUid = uid;
+  const db = getDB();
+  document.getElementById('deleteTarget').textContent = 'Compte : ' + (db[uid]?.pseudo || uid);
+  document.getElementById('deletePwd').value = '';
+  document.getElementById('deleteErr').style.display = 'none';
+  document.getElementById('deleteModal').style.display = 'flex';
+}
+function closeDeleteModal() {
+  document.getElementById('deleteModal').style.display = 'none';
+  _deleteUid = null;
+}
+function confirmDelete() {
+  const pwd = document.getElementById('deletePwd').value;
+  const err = document.getElementById('deleteErr');
+  const session = getAdminSession();
+  const db = getDB();
+  const admin = db[session?.uid];
+  if (!admin || admin.pwdHash !== simpleHash(pwd)) { showErr(err, 'Mot de passe incorrect'); return; }
+  const pseudo = db[_deleteUid]?.pseudo || _deleteUid;
+  delete db[_deleteUid];
+  saveDB(db);
+  try { localStorage.removeItem('codex_v2_' + _deleteUid); } catch(e) {}
+  closeDeleteModal();
+  closeUserConsole();
+  renderMembers();
+  showToast('🗑 COMPTE ' + pseudo.toUpperCase() + ' SUPPRIMÉ');
+}
+
+// ── CONNECTÉS ───────────────────────────────────
+function renderOnline() {
+  const sessions = getSessions();
+  const entries = Object.values(sessions);
+  const el = document.getElementById('onlineList');
+  const roleLabels = { user:'UTILISATEUR', manager:'MANAGER', admin_local:'ADMIN LOCAL', admin:'ADMIN GÉNÉRAL' };
+  const roleColors = { user:'var(--muted)', manager:'#ff4444', admin_local:'#00ff88', admin:'#00c8ff' };
+  if (!entries.length) {
+    el.innerHTML = '<div style="padding:14px;color:var(--muted);font-size:10px;text-align:center;">Aucune session active</div>';
+    return;
+  }
+  el.innerHTML = entries.map(s => `
+    <div class="session-row">
+      <div style="width:8px;height:8px;border-radius:50%;background:#00ff88;box-shadow:0 0 6px #00ff88;flex-shrink:0;"></div>
+      <div style="flex:1;">
+        <div style="font-family:'Orbitron',monospace;font-size:10px;color:#fff;">${s.pseudo}</div>
+        <div style="font-size:8px;color:${roleColors[s.role]||'var(--muted)'};">${roleLabels[s.role]||s.role}</div>
+      </div>
+      <div style="font-size:8px;color:var(--muted);">${new Date(s.loginAt).toLocaleString('fr-FR')}</div>
+      <button onclick="forceLogout('${s.uid}','${s.pseudo}')" style="font-family:Share Tech Mono,monospace;font-size:8px;padding:3px 8px;border:1px solid var(--red);color:var(--red);background:transparent;cursor:pointer;">⏻ DÉCONNECTER</button>
+    </div>`).join('');
+}
+
+function forceLogout(uid, pseudo) {
+  try { localStorage.setItem('codex_force_logout_' + uid, '1'); } catch(e) {}
+  const sessions = getSessions();
+  delete sessions[uid];
+  try { localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions)); } catch(e) {}
+  renderOnline();
+  showToast('⏻ ' + (pseudo||uid).toUpperCase() + ' DÉCONNECTÉ');
+}
+
+// ── MODULES ─────────────────────────────────────
+const MODULE_REGISTRY = {
+  industriel: { key:'industriel', label:'Module Industriel', emoji:'🏭', color:'#ff6b00',
+    description:'Métiers de l\'industrie manufacturière', tabCount:4 },
+};
+
+function renderModules() {
+  const activeKeys = (() => { try { return JSON.parse(localStorage.getItem(ACTIVE_MODULES_KEY)) || ['industriel']; } catch(e) { return ['industriel']; } })();
+  const customMods = getCustomModules();
+  const el = document.getElementById('moduleList');
+  let html = '';
+  Object.values(MODULE_REGISTRY).forEach(mod => {
+    const isActive = activeKeys.includes(mod.key);
+    html += `<div class="module-row">
+      <div style="font-size:22px;">${mod.emoji}</div>
+      <div style="flex:1;">
+        <div style="font-family:'Orbitron',monospace;font-size:10px;color:#fff;">${mod.label}</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px;">${mod.description}</div>
+      </div>
+      <button class="module-toggle ${isActive?'on':'off'}" onclick="toggleModule('${mod.key}')">
+        ${isActive ? '✓ ACTIF' : '○ INACTIF'}
+      </button>
+    </div>`;
+  });
+  if (customMods.length) {
+    html += `<div class="section-label" style="margin:10px 0 6px;border-top:1px solid var(--border);padding-top:8px;">MODULES PERSONNALISÉS</div>`;
+    customMods.forEach(mod => {
+      html += `<div class="module-row">
+        <div style="font-size:22px;">${mod.emoji||'📋'}</div>
+        <div style="flex:1;"><div style="font-family:'Orbitron',monospace;font-size:10px;color:#fff;">${mod.label}</div>
+        <div style="font-size:8px;color:var(--muted);">${mod.desc||''}</div></div>
+        <button onclick="removeCustomMod('${mod.key}')" style="font-size:8px;padding:4px 8px;border:1px solid var(--red);color:var(--red);background:transparent;cursor:pointer;">🗑 SUPPRIMER</button>
+      </div>`;
+    });
+  }
+  el.innerHTML = html || '<div style="padding:12px;color:var(--muted);font-size:10px;">Aucun module</div>';
+}
+
+function toggleModule(key) {
+  let active = (() => { try { return JSON.parse(localStorage.getItem(ACTIVE_MODULES_KEY)) || ['industriel']; } catch(e) { return ['industriel']; } })();
+  active = active.includes(key) ? active.filter(k => k !== key) : [...active, key];
+  try { localStorage.setItem(ACTIVE_MODULES_KEY, JSON.stringify(active)); } catch(e) {}
+  renderModules();
+  showToast(active.includes(key) ? '✓ MODULE ACTIVÉ' : '○ MODULE DÉSACTIVÉ');
+}
+
+function removeCustomMod(key) {
+  saveCustomModules(getCustomModules().filter(m => m.key !== key));
+  renderModules();
+  showToast('🗑 MODULE SUPPRIMÉ');
+}
+
+function doCreateModule() {
+  const name  = document.getElementById('modName').value.trim();
+  const key   = document.getElementById('modKey').value.trim();
+  const emoji = document.getElementById('modEmoji').value.trim() || '📋';
+  const color = document.getElementById('modColor').value;
+  const desc  = document.getElementById('modDesc').value.trim();
+  const err   = document.getElementById('createModErr');
+  if (!name || !key) { showErr(err, 'Nom et clé obligatoires'); return; }
+  const mods = getCustomModules();
+  if (mods.find(m => m.key === key)) { showErr(err, 'Cette clé existe déjà'); return; }
+  mods.push({ key, label:name, color, emoji, desc, quests:[] });
+  saveCustomModules(mods);
+  ['modName','modKey','modEmoji','modDesc'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  showToast('✓ MODULE "' + name.toUpperCase() + '" CRÉÉ');
+  switchTab('modules');
+}
+
+// ── AFFILIATIONS ────────────────────────────────
+function renderAffiliations() {
+  const db = getDB();
+  const affils = getAffils();
+  const users = Object.values(db);
+  const managers = users.filter(u => ['manager','admin_local','admin'].includes(u.role));
+  const regularUsers = users.filter(u => u.role === 'user');
+  const selU = document.getElementById('affilUser');
+  const selM = document.getElementById('affilMgr');
+  if (selU) selU.innerHTML = '<option value="">Utilisateur...</option>' + regularUsers.map(u=>`<option value="${u.uid}">${u.pseudo}</option>`).join('');
+  if (selM) selM.innerHTML = '<option value="">Manager...</option>' + managers.map(u=>`<option value="${u.uid}">${u.pseudo}</option>`).join('');
+  const el = document.getElementById('affilList');
+  const entries = Object.entries(affils);
+  if (!entries.length) { el.innerHTML = '<div style="padding:8px;color:var(--muted);font-size:9px;">Aucune affiliation</div>'; return; }
+  el.innerHTML = entries.map(([uid, mgrUid]) => {
+    const u = db[uid]; const m = db[mgrUid];
+    if (!u || !m) return '';
+    return `<div class="affil-row">
+      <span style="flex:1;color:var(--text);">👤 ${u.pseudo}</span>
+      <span style="color:var(--muted);">→</span>
+      <span style="color:#ff4444;">● ${m.pseudo}</span>
+      <button onclick="removeAffil('${uid}')" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-size:9px;padding:2px 8px;cursor:pointer;margin-left:auto;">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function doAffil() {
+  const uid = document.getElementById('affilUser').value;
+  const mgrUid = document.getElementById('affilMgr').value;
+  if (!uid || !mgrUid) { showToast('⚠ SÉLECTIONNE UN UTILISATEUR ET UN MANAGER'); return; }
+  const affils = getAffils();
+  affils[uid] = mgrUid;
+  saveAffils(affils);
+  renderAffiliations();
+  showToast('✓ AFFILIATION ENREGISTRÉE');
+}
+
+function removeAffil(uid) {
+  const affils = getAffils();
+  delete affils[uid];
+  saveAffils(affils);
+  renderAffiliations();
+  showToast('✓ AFFILIATION SUPPRIMÉE');
+}
+
+// ── VÉRIFICATIONS ────────────────────────────────
+const VERIFY_REQUESTS_KEY = 'codex_verify_requests';
+const ADMIN_VERIFY_NOTIFS = 'codex_admin_verify_notifs';
+
+function getVerifyRequests() {
+  try { return JSON.parse(localStorage.getItem(VERIFY_REQUESTS_KEY)) || []; } catch(e) { return []; }
+}
+function saveVerifyRequests(list) {
+  try { localStorage.setItem(VERIFY_REQUESTS_KEY, JSON.stringify(list)); } catch(e) {}
+}
+
+function renderVerifications() {
+  const el = document.getElementById('verifyList');
+  if (!el) return;
+  const requests = getVerifyRequests();
+  const pending  = requests.filter(r => r.status === 'pending');
+  const done     = requests.filter(r => r.status !== 'pending');
+
+  // Badge compteur
+  const badge = document.getElementById('verifyBadgeCount');
+  if (badge) {
+    badge.textContent = pending.length + ' en attente';
+    badge.style.display = pending.length ? 'inline' : 'none';
+  }
+
+  if (!pending.length && !done.length) {
+    el.innerHTML = '<div style="padding:14px;color:var(--muted);font-size:10px;text-align:center;">Aucune demande de vérification</div>';
+    return;
+  }
+
+  let html = '';
+
+  if (pending.length) {
+    html += `<div class="section-label" style="margin-bottom:8px;color:#ff6b00;">⏳ EN ATTENTE (${pending.length})</div>`;
+    pending.forEach(r => {
+      const date = new Date(r.createdAt).toLocaleString('fr-FR');
+      const filesHtml = r.files && r.files.length
+        ? r.files.map((f,i) => `<button onclick="previewFile('${r.id}',${i})" style="font-size:8px;padding:3px 8px;border:1px solid var(--border);color:var(--muted);background:transparent;cursor:pointer;margin-right:4px;">${f.type.includes('pdf')?'📄':'🖼️'} ${f.name.slice(0,20)}</button>`).join('')
+        : '<span style="font-size:8px;color:var(--muted);">Aucune pièce jointe</span>';
+
+      html += `<div style="background:var(--bg);border:1px solid var(--border);border-left:3px solid #ff6b00;padding:12px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div style="font-family:'Orbitron',monospace;font-size:10px;color:#fff;">👤 ${r.pseudo}</div>
+          <div style="font-size:8px;color:var(--muted);">${date}</div>
+        </div>
+        <div style="font-size:8px;color:var(--muted);margin-bottom:8px;">${r.email}</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);padding:8px;background:rgba(255,255,255,0.03);border:1px solid var(--border);margin-bottom:8px;line-height:1.5;">"${r.text}"</div>
+        <div style="margin-bottom:10px;">${filesHtml}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button onclick="resolveVerification('${r.id}', true)" style="font-size:8px;padding:5px 10px;border:1px solid var(--accent3);color:var(--accent3);background:rgba(0,255,136,0.06);cursor:pointer;">✓ VALIDER LE PARCOURS</button>
+          <button onclick="openReplyModal('${r.id}','${r.pseudo}')" style="font-size:8px;padding:5px 10px;border:1px solid var(--accent);color:var(--accent);background:rgba(0,200,255,0.06);cursor:pointer;">💬 DEMANDER INFOS</button>
+          <button onclick="resolveVerification('${r.id}', false)" style="font-size:8px;padding:5px 10px;border:1px solid #ff4444;color:#ff4444;background:transparent;cursor:pointer;">✕ REFUSER</button>
+        </div>
+      </div>`;
+    });
+  }
+
+  if (done.length) {
+    html += `<details style="margin-top:8px;"><summary style="font-size:8px;color:var(--muted);cursor:pointer;letter-spacing:2px;list-style:none;">📋 HISTORIQUE (${done.length})</summary>
+      <div style="margin-top:6px;">${done.map(r => {
+        const ok = r.status === 'verified';
+        return `<div style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:9px;color:${ok?'var(--accent3)':'#ff4444'};">
+          ${ok?'✓ Validé':'✗ Refusé'} — ${r.pseudo} — ${r.resolvedAt?new Date(r.resolvedAt).toLocaleDateString('fr-FR'):''}
+        </div>`;
+      }).join('')}</div></details>`;
+  }
+
+  el.innerHTML = html;
+}
+
+// Stocker la demande en cours pour répondre
+let _replyRequestId = null;
+
+function openReplyModal(requestId, pseudo) {
+  _replyRequestId = requestId;
+  document.getElementById('replyTarget').textContent = 'Destinataire : ' + pseudo;
+  document.getElementById('replyText').value = '';
+  document.getElementById('replyModal').style.display = 'flex';
+}
+function closeReplyModal() {
+  document.getElementById('replyModal').style.display = 'none';
+  _replyRequestId = null;
+}
+
+function sendAdminReply() {
+  const msg = document.getElementById('replyText').value.trim();
+  if (!msg || !_replyRequestId) return;
+  const requests = getVerifyRequests();
+  const req = requests.find(r => r.id === _replyRequestId);
+  if (!req) return;
+  req.adminMessage = msg;
+  saveVerifyRequests(requests);
+
+  // Notifier l'utilisateur
+  const db = JSON.parse(localStorage.getItem('codex_users_db') || '{}');
+  const notifs = JSON.parse(localStorage.getItem('codex_notifs') || '{}');
+  if (!notifs[req.uid]) notifs[req.uid] = [];
+  notifs[req.uid].unshift({
+    type: 'verify_message', title: '💬 Message de l\'administrateur',
+    sub: msg.slice(0, 80) + (msg.length > 80 ? '...' : ''),
+    date: new Date().toISOString(), id: 'n_' + Date.now(), read: false,
+  });
+  localStorage.setItem('codex_notifs', JSON.stringify(notifs));
+
+  closeReplyModal();
+  renderVerifications();
+  showToast('💬 MESSAGE ENVOYÉ À ' + req.pseudo.toUpperCase());
+}
+
+function resolveVerification(requestId, accept) {
+  const requests = getVerifyRequests();
+  const req = requests.find(r => r.id === requestId);
+  if (!req) return;
+
+  req.status = accept ? 'verified' : 'rejected';
+  req.resolvedAt = new Date().toISOString();
+  saveVerifyRequests(requests);
+
+  if (accept) {
+    // Marquer l'utilisateur comme vérifié
+    const db = JSON.parse(localStorage.getItem('codex_users_db') || '{}');
+    if (db[req.uid]) { db[req.uid].verified = true; localStorage.setItem('codex_users_db', JSON.stringify(db)); }
+
+    // Notification utilisateur
+    const notifs = JSON.parse(localStorage.getItem('codex_notifs') || '{}');
+    if (!notifs[req.uid]) notifs[req.uid] = [];
+    notifs[req.uid].unshift({
+      type: 'verified', title: '✓ Profil vérifié !',
+      sub: 'Ton parcours a été validé. Le badge PROFIL VÉRIFIÉ est maintenant visible.',
+      date: new Date().toISOString(), id: 'n_' + Date.now(), read: false,
+    });
+    localStorage.setItem('codex_notifs', JSON.stringify(notifs));
+    showToast('✓ PARCOURS VALIDÉ — BADGE ATTRIBUÉ');
+  } else {
+    const notifs = JSON.parse(localStorage.getItem('codex_notifs') || '{}');
+    if (!notifs[req.uid]) notifs[req.uid] = [];
+    notifs[req.uid].unshift({
+      type: 'verify_rejected', title: '✗ Vérification refusée',
+      sub: 'Ton dossier n\'a pas pu être validé. Tu peux soumettre une nouvelle demande.',
+      date: new Date().toISOString(), id: 'n_' + Date.now(), read: false,
+    });
+    localStorage.setItem('codex_notifs', JSON.stringify(notifs));
+    showToast('✗ DEMANDE REFUSÉE');
+  }
+
+  renderVerifications();
+}
+
+// Prévisualiser un fichier joint
+let _previewFiles = {};
+function previewFile(requestId, fileIdx) {
+  const requests = getVerifyRequests();
+  const req = requests.find(r => r.id === requestId);
+  if (!req || !req.files[fileIdx]) return;
+  const f = req.files[fileIdx];
+  const modal = document.getElementById('filePreviewModal');
+  const content = document.getElementById('filePreviewContent');
+  if (f.type.includes('pdf')) {
+    content.innerHTML = `<iframe src="${f.data}" style="width:80vw;height:80vh;border:none;"></iframe>`;
+  } else {
+    content.innerHTML = `<img src="${f.data}" style="max-width:85vw;max-height:80vh;object-fit:contain;">`;
+  }
+  modal.style.display = 'flex';
+}
+function closeFilePreview() {
+  document.getElementById('filePreviewModal').style.display = 'none';
+  document.getElementById('filePreviewContent').innerHTML = '';
+}
+
+// ── TOAST ────────────────────────────────────────
+let _toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── HORLOGE ──────────────────────────────────────
+function updateClock() {
+  const el = document.getElementById('adminClock');
+  if (!el) return;
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2,'0');
+  const mm = String(now.getMonth()+1).padStart(2,'0');
+  const yy = String(now.getFullYear()).slice(-2);
+  const hh = String(now.getHours()).padStart(2,'0');
+  const min = String(now.getMinutes()).padStart(2,'0');
+  el.textContent = `${dd}/${mm}/${yy} — ${hh}H${min}`;
+}
+
+// ── INIT ─────────────────────────────────────────
+bootstrap();
+updateClock();
+setInterval(updateClock, 1000);
+
+// Restaurer session existante (TOTP déjà validé dans cette session)
+const session = getAdminSession();
+if (session) {
+  const db = getDB();
+  const fresh = db[session.uid];
+  if (fresh && fresh.role === 'admin') {
+    // Session valide — pas besoin de re-valider TOTP
+    document.getElementById('authOverlay').classList.remove('active');
+    document.getElementById('adminApp').style.display = 'block';
+    document.getElementById('adminUserInfo').textContent = '⚡ ' + fresh.pseudo.toUpperCase();
+    switchTab('members');
+  }
+}
+</script>
+</body>
+</html>
